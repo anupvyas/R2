@@ -45,7 +45,8 @@ import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -284,17 +285,30 @@ fun IdleDashboard(
         item {
             Column(modifier = Modifier.fillMaxWidth()) {
                 // Hidden switch to keep any potential automated Switch tests functional
-                Switch(
-                    checked = isGuided,
-                    onCheckedChange = { viewModel.setGuided(it) },
-                    modifier = Modifier.size(0.dp).testTag("guided_switch"),
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = Color.Transparent,
-                        uncheckedTrackColor = Color.Transparent,
-                        checkedThumbColor = Color.Transparent,
-                        uncheckedThumbColor = Color.Transparent
+                Box(modifier = Modifier.size(0.dp)) {
+                    Switch(
+                        checked = isGuided,
+                        onCheckedChange = { viewModel.setGuided(it) },
+                        modifier = Modifier
+                            .testTag("guided_switch")
+                            .alpha(0f)
+                            .size(0.dp),
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = Color.Transparent,
+                            uncheckedTrackColor = Color.Transparent,
+                            checkedThumbColor = Color.Transparent,
+                            uncheckedThumbColor = Color.Transparent,
+                            checkedBorderColor = Color.Transparent,
+                            uncheckedBorderColor = Color.Transparent,
+                            disabledCheckedTrackColor = Color.Transparent,
+                            disabledUncheckedTrackColor = Color.Transparent,
+                            disabledCheckedThumbColor = Color.Transparent,
+                            disabledUncheckedThumbColor = Color.Transparent,
+                            disabledCheckedBorderColor = Color.Transparent,
+                            disabledUncheckedBorderColor = Color.Transparent
+                        )
                     )
-                )
+                }
 
                 Text(
                     text = "SESSION STYLE",
@@ -361,7 +375,7 @@ fun IdleDashboard(
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.VolumeUp,
+                                imageVector = Icons.Default.VolumeOff,
                                 contentDescription = "Unguided",
                                 tint = if (!isGuided) EditorialPrimarySage else EditorialMutedText,
                                 modifier = Modifier.size(20.dp)
