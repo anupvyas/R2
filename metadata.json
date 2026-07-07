@@ -1,0 +1,6 @@
+{
+  "name": "Zen Meditation",
+  "description": "A tranquil meditation app with customizable durations, local progress logging, guided/unguided sessions, and ambient bell chimes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
