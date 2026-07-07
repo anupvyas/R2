@@ -406,7 +406,7 @@ fun IdleDashboard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Choose Presets or Slider",
+                        text = "Choose Preset or Custom",
                         color = EditorialMutedText,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.SansSerif
@@ -415,7 +415,7 @@ fun IdleDashboard(
             }
         }
 
-        // PRESET DURATION SELECTION (Requirement: 10m, 15m, 30m, 60m, 75m, 90m, 120m)
+        // MEDITATION INTERVAL SELECTION (with custom slider trigger option)
         item {
             Column(
                 modifier = Modifier
@@ -424,48 +424,47 @@ fun IdleDashboard(
                     .background(EditorialWhite)
                     .border(
                         1.dp,
-                        if (selectionMode == DurationSelectionMode.PRESET) EditorialPrimarySage else EditorialBorder,
+                        EditorialPrimarySage,
                         RoundedCornerShape(20.dp)
                     )
                     .padding(16.dp)
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { viewModel.selectPreset(selectedPresetMinutes) },
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = if (selectionMode == DurationSelectionMode.PRESET)
-                                Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
-                            contentDescription = "Preset mode selection",
-                            tint = if (selectionMode == DurationSelectionMode.PRESET) EditorialPrimarySage else EditorialBorder,
-                            modifier = Modifier.size(20.dp)
+                            imageVector = Icons.Default.SelfImprovement,
+                            contentDescription = "Meditation Interval Selection",
+                            tint = EditorialPrimarySage,
+                            modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Standard Preset Intervals",
+                            text = "Meditation Interval",
                             color = EditorialDarkText,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
                             fontFamily = FontFamily.SansSerif
                         )
                     }
-                    if (selectionMode == DurationSelectionMode.PRESET) {
-                        Text(
-                            text = formatPresetLabel(selectedPresetMinutes),
-                            color = EditorialPrimarySage,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp,
-                            fontFamily = FontFamily.SansSerif
-                        )
-                    }
+                    Text(
+                        text = if (selectionMode == DurationSelectionMode.PRESET) {
+                            formatPresetLabel(selectedPresetMinutes)
+                        } else {
+                            "Custom (${formatMinutesToLabel(customSliderMinutes)})"
+                        },
+                        color = EditorialPrimarySage,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 14.sp,
+                        fontFamily = FontFamily.SansSerif
+                    )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Grid layout of presets
+                // Grid layout of presets with "Custom" at the end (total 8 slots: 4x2)
                 val presets = viewModel.presetOptions
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -493,84 +492,107 @@ fun IdleDashboard(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    // Place empty space to balance last row which has 3 items
-                    Box(modifier = Modifier.weight(1f))
+                    
+                    // Custom Selection Chip
+                    val isCustomSelected = selectionMode == DurationSelectionMode.SLIDER
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (isCustomSelected) EditorialPrimarySage else EditorialWhite)
+                            .border(
+                                1.dp,
+                                if (isCustomSelected) EditorialPrimarySage else EditorialBorder,
+                                RoundedCornerShape(14.dp)
+                            )
+                            .clickable { viewModel.selectSlider(customSliderMinutes) }
+                            .testTag("preset_custom"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Custom",
+                            color = if (isCustomSelected) EditorialWhite else EditorialDarkText,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            fontFamily = FontFamily.SansSerif
+                        )
+                    }
                 }
             }
         }
 
-        // VARIABLE TIME SLIDER SELECTION (Requirement: 5 mins to 9 hours)
-        item {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(EditorialWhite)
-                    .border(
-                        1.dp,
-                        if (selectionMode == DurationSelectionMode.SLIDER) EditorialPrimarySage else EditorialBorder,
-                        RoundedCornerShape(20.dp)
-                    )
-                    .padding(16.dp)
-            ) {
-                Row(
+        // VARIABLE TIME SLIDER SELECTION - Displayed ONLY when 'Custom' is selected
+        if (selectionMode == DurationSelectionMode.SLIDER) {
+            item {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { viewModel.selectSlider(customSliderMinutes) },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = if (selectionMode == DurationSelectionMode.SLIDER)
-                                Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
-                            contentDescription = "Slider mode selection",
-                            tint = if (selectionMode == DurationSelectionMode.SLIDER) EditorialPrimarySage else EditorialBorder,
-                            modifier = Modifier.size(20.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(EditorialWhite)
+                        .border(
+                            1.dp,
+                            EditorialPrimarySage,
+                            RoundedCornerShape(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.SelfImprovement,
+                                contentDescription = "Custom Time Slider",
+                                tint = EditorialPrimarySage,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Custom Time Slider",
+                                color = EditorialDarkText,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                fontFamily = FontFamily.SansSerif
+                            )
+                        }
                         Text(
-                            text = "Custom Time Slider",
-                            color = EditorialDarkText,
-                            fontWeight = FontWeight.Bold,
+                            text = formatMinutesToLabel(customSliderMinutes),
+                            color = EditorialPrimarySage,
+                            fontWeight = FontWeight.ExtraBold,
                             fontSize = 15.sp,
                             fontFamily = FontFamily.SansSerif
                         )
                     }
-                    Text(
-                        text = formatMinutesToLabel(customSliderMinutes),
-                        color = if (selectionMode == DurationSelectionMode.SLIDER) EditorialPrimarySage else EditorialMutedText,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 15.sp,
-                        fontFamily = FontFamily.SansSerif
-                    )
-                }
-                Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                // Slider from 5 minutes (5) to 9 hours (540)
-                Slider(
-                    value = customSliderMinutes.toFloat(),
-                    onValueChange = { viewModel.selectSlider(it.toInt()) },
-                    valueRange = 5f..540f,
-                    steps = 107, // 5 min increments
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("custom_slider"),
-                    colors = SliderDefaults.colors(
-                        thumbColor = if (selectionMode == DurationSelectionMode.SLIDER) EditorialPrimarySage else EditorialBorder,
-                        activeTrackColor = if (selectionMode == DurationSelectionMode.SLIDER) EditorialPrimarySage else EditorialLightSage,
-                        inactiveTrackColor = EditorialLightSage
+                    // Slider from 5 minutes (5) to 9 hours (540)
+                    Slider(
+                        value = customSliderMinutes.toFloat(),
+                        onValueChange = { viewModel.selectSlider(it.toInt()) },
+                        valueRange = 5f..540f,
+                        steps = 107, // 5 min increments
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("custom_slider"),
+                        colors = SliderDefaults.colors(
+                            thumbColor = EditorialPrimarySage,
+                            activeTrackColor = EditorialPrimarySage,
+                            inactiveTrackColor = EditorialLightSage
+                        )
                     )
-                )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("5 min", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
-                    Text("3 hours", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
-                    Text("6 hours", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
-                    Text("9 hours", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("5 min", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
+                        Text("3 hours", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
+                        Text("6 hours", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
+                        Text("9 hours", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
+                    }
                 }
             }
         }
