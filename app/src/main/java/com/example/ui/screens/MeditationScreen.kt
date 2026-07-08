@@ -206,8 +206,8 @@ fun IdleDashboard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Zen Sanctuary",
-                    fontSize = 32.sp,
+                    text = "RRR - Relax Reset Rise",
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
                     color = EditorialDarkText,
                     fontFamily = FontFamily.Serif
@@ -333,7 +333,7 @@ fun IdleDashboard(
                             .weight(1f)
                             .height(48.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isGuided) EditorialWhite else Color.Transparent)
+                            .background(if (isGuided) EditorialPrimarySage else Color.Transparent)
                             .clickable { viewModel.setGuided(true) }
                             .testTag("guided_tab_active"),
                         contentAlignment = Alignment.Center
@@ -345,7 +345,7 @@ fun IdleDashboard(
                             Icon(
                                 imageVector = Icons.Default.SelfImprovement,
                                 contentDescription = "Guided",
-                                tint = if (isGuided) EditorialPrimarySage else EditorialMutedText,
+                                tint = if (isGuided) EditorialWhite else EditorialMutedText,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -353,7 +353,7 @@ fun IdleDashboard(
                                 text = "Guided",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isGuided) EditorialDarkText else EditorialMutedText,
+                                color = if (isGuided) EditorialWhite else EditorialMutedText,
                                 fontFamily = FontFamily.SansSerif
                             )
                         }
@@ -365,7 +365,7 @@ fun IdleDashboard(
                             .weight(1f)
                             .height(48.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (!isGuided) EditorialWhite else Color.Transparent)
+                            .background(if (!isGuided) EditorialPrimarySage else Color.Transparent)
                             .clickable { viewModel.setGuided(false) }
                             .testTag("unguided_tab_active"),
                         contentAlignment = Alignment.Center
@@ -377,7 +377,7 @@ fun IdleDashboard(
                             Icon(
                                 imageVector = Icons.Default.VolumeOff,
                                 contentDescription = "Unguided",
-                                tint = if (!isGuided) EditorialPrimarySage else EditorialMutedText,
+                                tint = if (!isGuided) EditorialWhite else EditorialMutedText,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -385,7 +385,7 @@ fun IdleDashboard(
                                 text = "Unguided",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (!isGuided) EditorialDarkText else EditorialMutedText,
+                                color = if (!isGuided) EditorialWhite else EditorialMutedText,
                                 fontFamily = FontFamily.SansSerif
                             )
                         }
@@ -582,12 +582,12 @@ fun IdleDashboard(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Slider from 5 minutes (5) to 9 hours (540)
+                    // Slider from 5 minutes (or 10 if guided) to 9 hours (540)
                     Slider(
                         value = customSliderMinutes.toFloat(),
                         onValueChange = { viewModel.selectSlider(it.toInt()) },
-                        valueRange = 5f..540f,
-                        steps = 107, // 5 min increments
+                        valueRange = if (isGuided) 10f..540f else 5f..540f,
+                        steps = if (isGuided) 105 else 106, // 5 min increments
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("custom_slider"),
@@ -602,7 +602,7 @@ fun IdleDashboard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("5 min", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
+                        Text(if (isGuided) "10 min" else "5 min", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
                         Text("3 hours", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
                         Text("6 hours", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)
                         Text("9 hours", color = EditorialMutedText, fontSize = 11.sp, fontFamily = FontFamily.SansSerif)

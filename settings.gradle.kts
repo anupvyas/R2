@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Zen Meditation"
+rootProject.name = "RRR - Relax Reset Rise"
 
 include(":app")

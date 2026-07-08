@@ -16,6 +16,42 @@ class ExampleRobolectricTest {
   fun `read string from context`() {
     val context = ApplicationProvider.getApplicationContext<Context>()
     val appName = context.getString(R.string.app_name)
-    assertEquals("My Application", appName)
+    assertEquals("RRR - Relax Reset Rise", appName)
+  }
+
+  @Test
+  fun printTrackDurations() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val rawIds = listOf(
+        R.raw.o1_instruction,
+        R.raw.o2_instruction,
+        R.raw.o3_instruction,
+        R.raw.o4_instruction,
+        R.raw.o5_instruction,
+        R.raw.o6_instruction,
+        R.raw.o7_instruction,
+        R.raw.o8_instruction,
+        R.raw.o9_instruction,
+        R.raw.o10_instruction,
+        R.raw.o11_instruction,
+        R.raw.o12_instruction,
+        R.raw.o13_instruction
+    )
+    for (i in rawIds.indices) {
+        val retriever = android.media.MediaMetadataRetriever()
+        val uri = android.net.Uri.parse("android.resource://" + context.packageName + "/" + rawIds[i])
+        try {
+            retriever.setDataSource(context, uri)
+            val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+            val durationMs = durationStr?.toLong() ?: 0L
+            println("TRACK_DURATION_LOG: Track ${i+1} duration in ms: $durationMs (${durationMs / 1000.0} seconds)")
+        } catch (e: Exception) {
+            println("TRACK_DURATION_LOG: Failed to get duration for track ${i+1}: ${e.message}")
+        } finally {
+            try {
+                retriever.release()
+            } catch (e: Exception) {}
+        }
+    }
   }
 }

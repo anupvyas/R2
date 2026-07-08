@@ -6,7 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.database.AppDatabase
 import com.example.data.database.MeditationSession
 import com.example.data.repository.SessionRepository
-import com.example.ui.audio.ChimePlayer
+import com.example.ui.audio.GongPlayer
+import com.example.ui.audio.InstructionPlayer
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 
 enum class DurationSelectionMode {
@@ -31,7 +34,26 @@ enum class SessionState {
 
 class MeditationViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: SessionRepository
-    private val chimePlayer = ChimePlayer()
+    private val gongPlayer = GongPlayer(application)
+    private val instructionPlayer = InstructionPlayer(application)
+    private var activeTrackStartTimes: List<Int> = emptyList()
+    private var lastPlayedTrackIndex = -1
+
+    private val guidedTrackResIds = listOf(
+        com.example.R.raw.o1_instruction,
+        com.example.R.raw.o2_instruction,
+        com.example.R.raw.o3_instruction,
+        com.example.R.raw.o4_instruction,
+        com.example.R.raw.o5_instruction,
+        com.example.R.raw.o6_instruction,
+        com.example.R.raw.o7_instruction,
+        com.example.R.raw.o8_instruction,
+        com.example.R.raw.o9_instruction,
+        com.example.R.raw.o10_instruction,
+        com.example.R.raw.o11_instruction,
+        com.example.R.raw.o12_instruction,
+        com.example.R.raw.o13_instruction
+    )
 
     val allSessions: StateFlow<List<MeditationSession>>
 
@@ -55,7 +77,7 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
     private val _customSliderMinutes = MutableStateFlow(20) // Default custom slider
     val customSliderMinutes = _customSliderMinutes.asStateFlow()
 
-    private val _isGuided = MutableStateFlow(false)
+    private val _isGuided = MutableStateFlow(true)
     val isGuided = _isGuided.asStateFlow()
 
     // Timer States
@@ -101,6 +123,88 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
 
     fun setGuided(guided: Boolean) {
         _isGuided.value = guided
+        if (guided) {
+            if (_customSliderMinutes.value < 10) {
+                _customSliderMinutes.value = 10
+            }
+            if (_selectedPresetMinutes.value < 10) {
+                _selectedPresetMinutes.value = 10
+            }
+        }
+    }
+
+    fun getGuidedTrackStartTimes(durationMinutes: Int): List<Int> {
+        val context = getApplication<Application>()
+        val trackDurations = guidedTrackResIds.map { resId ->
+            getRawTrackDuration(context, resId)
+        }
+        // Gaps between tracks in seconds from the user's spreadsheet
+        val baseGaps = listOf(2.0, 4.0, 4.0, 11.0, 11.0, 11.0, 11.0, 1.0, 11.0, 2.0, 11.0, 11.0)
+        
+        // For other durations, we scale the gaps proportionately.
+        val scaleFactor = durationMinutes.toDouble() / 10.0
+        
+        val startTimes = mutableListOf<Int>()
+        var currentOffset = 0.0
+        
+        for (i in trackDurations.indices) {
+            startTimes.add(currentOffset.toInt())
+            currentOffset += trackDurations[i]
+            if (i < baseGaps.size) {
+                currentOffset += baseGaps[i] * scaleFactor
+            }
+        }
+        
+        return startTimes
+    }
+
+    private fun getRawTrackDuration(context: android.content.Context, resId: Int): Int {
+        // First, check if the raw file is empty or invalid to avoid blocking calls to MediaMetadataRetriever
+        try {
+            context.resources.openRawResourceFd(resId).use { fd ->
+                if (fd == null || fd.length <= 0) {
+                    return getFallbackTrackDuration(resId)
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MeditationViewModel", "Error opening raw resource fd for $resId: ${e.message}")
+            return getFallbackTrackDuration(resId)
+        }
+
+        val retriever = android.media.MediaMetadataRetriever()
+        val uri = android.net.Uri.parse("android.resource://${context.packageName}/$resId")
+        return try {
+            retriever.setDataSource(context, uri)
+            val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+            val durationMs = durationStr?.toLong() ?: 0L
+            ((durationMs + 500) / 1000).toInt()
+        } catch (e: Exception) {
+            android.util.Log.e("MeditationViewModel", "Error getting track duration for $resId: ${e.message}")
+            getFallbackTrackDuration(resId)
+        } finally {
+            try {
+                retriever.release()
+            } catch (e: Exception) {}
+        }
+    }
+
+    private fun getFallbackTrackDuration(resId: Int): Int {
+        return when (resId) {
+            com.example.R.raw.o1_instruction -> 44
+            com.example.R.raw.o2_instruction -> 22
+            com.example.R.raw.o3_instruction -> 28
+            com.example.R.raw.o4_instruction -> 46
+            com.example.R.raw.o5_instruction -> 19
+            com.example.R.raw.o6_instruction -> 45
+            com.example.R.raw.o7_instruction -> 30
+            com.example.R.raw.o8_instruction -> 29
+            com.example.R.raw.o9_instruction -> 21
+            com.example.R.raw.o10_instruction -> 41
+            com.example.R.raw.o11_instruction -> 36
+            com.example.R.raw.o12_instruction -> 36
+            com.example.R.raw.o13_instruction -> 14
+            else -> 30
+        }
     }
 
     fun startMeditation() {
@@ -113,20 +217,33 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
         _remainingSeconds.value = totalSeconds
         _isTimerRunning.value = true
         _currentSessionState.value = SessionState.ACTIVE
+        lastPlayedTrackIndex = -1
 
-        // Play meditation opening chime!
-        chimePlayer.playChime()
-
-        startTimer(totalSeconds)
+        // Initialize active track start times in a background coroutine to prevent any UI freeze
+        viewModelScope.launch {
+            if (_isGuided.value) {
+                activeTrackStartTimes = withContext(Dispatchers.IO) {
+                    getGuidedTrackStartTimes(durationMinutes)
+                }
+            } else {
+                activeTrackStartTimes = emptyList()
+            }
+            startTimer(totalSeconds)
+        }
     }
 
     private fun startTimer(totalSeconds: Int) {
         timerJob?.cancel()
         timerJob = viewModelScope.launch {
+            // Check immediately on start
+            checkAndPlayGuidedTrack(_elapsedSeconds.value)
+
             while (_remainingSeconds.value > 0 && _isTimerRunning.value) {
                 delay(1000)
                 _elapsedSeconds.value += 1
                 _remainingSeconds.value -= 1
+                
+                checkAndPlayGuidedTrack(_elapsedSeconds.value)
             }
             if (_remainingSeconds.value == 0) {
                 completeMeditation()
@@ -134,13 +251,33 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    private fun checkAndPlayGuidedTrack(elapsed: Int) {
+        if (_isGuided.value) {
+            var trackIndexToPlay = -1
+            for (i in activeTrackStartTimes.indices) {
+                if (elapsed >= activeTrackStartTimes[i]) {
+                    trackIndexToPlay = i
+                }
+            }
+            if (trackIndexToPlay != -1 && trackIndexToPlay > lastPlayedTrackIndex) {
+                lastPlayedTrackIndex = trackIndexToPlay
+                val resId = guidedTrackResIds.getOrNull(trackIndexToPlay)
+                if (resId != null && resId != 0) {
+                    instructionPlayer.playTrack(resId)
+                }
+            }
+        }
+    }
+
     fun pauseMeditation() {
         _isTimerRunning.value = false
         timerJob?.cancel()
+        instructionPlayer.pause()
     }
 
     fun resumeMeditation() {
         _isTimerRunning.value = true
+        instructionPlayer.resume()
         startTimer(_remainingSeconds.value)
     }
 
@@ -152,9 +289,7 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
     private fun completeMeditation() {
         _isTimerRunning.value = false
         _currentSessionState.value = SessionState.COMPLETED
-
-        // Play meditation ending chime!
-        chimePlayer.playChime()
+        instructionPlayer.stop()
 
         val secondsCompleted = _elapsedSeconds.value
         // Calculate points: 1 minute = 1 point. Let's award 1 point for any session >= 30 seconds
@@ -203,6 +338,7 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
         _remainingSeconds.value = 0
         _isTimerRunning.value = false
         timerJob?.cancel()
+        instructionPlayer.stop()
     }
 
     fun clearHistory() {
@@ -213,7 +349,8 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
 
     override fun onCleared() {
         super.onCleared()
-        chimePlayer.release()
+        gongPlayer.release()
+        instructionPlayer.release()
     }
 
     // Helper functions to identify date relative to User's time
