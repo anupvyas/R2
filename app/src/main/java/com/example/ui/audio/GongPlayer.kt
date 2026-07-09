@@ -2,6 +2,7 @@ package com.example.ui.audio
 
 import android.content.Context
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
@@ -13,6 +14,12 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 class GongPlayer(private val context: Context) {
+    private val attributionContext: Context = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        context.createAttributionContext("meditation_player")
+    } else {
+        context
+    }
+
     private val scope = CoroutineScope(Dispatchers.IO)
     private var mediaPlayer: MediaPlayer? = null
     private val gongFile = File(context.cacheDir, "gong_resonant.wav")
@@ -151,19 +158,37 @@ class GongPlayer(private val context: Context) {
     fun playGong() {
         scope.launch(Dispatchers.IO) {
             try {
-                if (!gongFile.exists()) {
-                    val buffer = generateGongBuffer()
-                    writeWavFile(buffer, gongFile)
-                }
-
                 // Release old media player if any
                 release()
 
-                val player = MediaPlayer().apply {
-                    setDataSource(gongFile.absolutePath)
-                    prepare()
-                    start()
+                val player = MediaPlayer()
+                var success = false
+
+                // Try to load and play gong_c5 from resources first
+                try {
+                    val resourceId = attributionContext.resources.getIdentifier("gong_c5", "raw", attributionContext.packageName)
+                    if (resourceId != 0) {
+                        attributionContext.resources.openRawResourceFd(resourceId).use { afd ->
+                            if (afd != null) {
+                                player.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                                success = true
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("GongPlayer", "gong_c5.mp3 resource not found or failed to load: ${e.message}. Falling back to generated WAV.")
                 }
+
+                if (!success) {
+                    if (!gongFile.exists()) {
+                        val buffer = generateGongBuffer()
+                        writeWavFile(buffer, gongFile)
+                    }
+                    player.setDataSource(attributionContext, Uri.fromFile(gongFile))
+                }
+
+                player.prepare()
+                player.start()
                 mediaPlayer = player
             } catch (e: Exception) {
                 Log.e("GongPlayer", "Error playing gong: ${e.message}")

@@ -38,6 +38,7 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
     private val instructionPlayer = InstructionPlayer(application)
     private var activeTrackStartTimes: List<Int> = emptyList()
     private var lastPlayedTrackIndex = -1
+    private var hasPlayedEndGong = false
 
     private val guidedTrackResIds = listOf(
         com.example.R.raw.o1_instruction,
@@ -139,13 +140,13 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
             getRawTrackDuration(context, resId)
         }
         // Gaps between tracks in seconds from the user's spreadsheet
-        val baseGaps = listOf(2.0, 4.0, 4.0, 11.0, 11.0, 11.0, 11.0, 1.0, 11.0, 2.0, 11.0, 11.0)
+        val baseGaps = listOf(2.0, 4.0, 7.0, 27.0, 18.0, 27.0, 27.0, 1.0, 18.0, 4.0, 18.0, 18.0)
         
         // For other durations, we scale the gaps proportionately.
         val scaleFactor = durationMinutes.toDouble() / 10.0
         
         val startTimes = mutableListOf<Int>()
-        var currentOffset = 0.0
+        var currentOffset = getGongDurationSeconds().toDouble()
         
         for (i in trackDurations.indices) {
             startTimes.add(currentOffset.toInt())
@@ -207,6 +208,32 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun getGongDurationSeconds(): Int {
+        val context = getApplication<Application>()
+        val resourceId = context.resources.getIdentifier("gong_c5", "raw", context.packageName)
+        if (resourceId == 0) return 9
+        
+        val retriever = android.media.MediaMetadataRetriever()
+        val uri = android.net.Uri.parse("android.resource://${context.packageName}/$resourceId")
+        return try {
+            retriever.setDataSource(context, uri)
+            val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+            val durationMs = durationStr?.toLong() ?: 0L
+            if (durationMs > 0) {
+                ((durationMs + 500) / 1000).toInt()
+            } else {
+                9
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MeditationViewModel", "Error getting gong duration: ${e.message}")
+            9
+        } finally {
+            try {
+                retriever.release()
+            } catch (e: Exception) {}
+        }
+    }
+
     fun startMeditation() {
         val durationMinutes = when (_selectionMode.value) {
             DurationSelectionMode.PRESET -> _selectedPresetMinutes.value
@@ -218,6 +245,7 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
         _isTimerRunning.value = true
         _currentSessionState.value = SessionState.ACTIVE
         lastPlayedTrackIndex = -1
+        hasPlayedEndGong = false
 
         // Initialize active track start times in a background coroutine to prevent any UI freeze
         viewModelScope.launch {
@@ -228,7 +256,13 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
             } else {
                 activeTrackStartTimes = emptyList()
             }
-            startTimer(totalSeconds)
+            
+            // Play the start gong first
+            gongPlayer.playGong()
+            
+            if (_currentSessionState.value == SessionState.ACTIVE && _isTimerRunning.value) {
+                startTimer(totalSeconds)
+            }
         }
     }
 
@@ -238,11 +272,19 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
             // Check immediately on start
             checkAndPlayGuidedTrack(_elapsedSeconds.value)
 
+            val gongDuration = getGongDurationSeconds()
+
             while (_remainingSeconds.value > 0 && _isTimerRunning.value) {
                 delay(1000)
                 _elapsedSeconds.value += 1
                 _remainingSeconds.value -= 1
                 
+                // Play end gong gongDuration seconds before ending the session
+                if (_remainingSeconds.value == gongDuration && !hasPlayedEndGong) {
+                    hasPlayedEndGong = true
+                    gongPlayer.playGong()
+                }
+
                 checkAndPlayGuidedTrack(_elapsedSeconds.value)
             }
             if (_remainingSeconds.value == 0) {
@@ -290,6 +332,12 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
         _isTimerRunning.value = false
         _currentSessionState.value = SessionState.COMPLETED
         instructionPlayer.stop()
+        
+        // Play the end gong only if not already played
+        if (!hasPlayedEndGong) {
+            hasPlayedEndGong = true
+            gongPlayer.playGong()
+        }
 
         val secondsCompleted = _elapsedSeconds.value
         // Calculate points: 1 minute = 1 point. Let's award 1 point for any session >= 30 seconds

@@ -2,6 +2,7 @@ package com.example.ui.audio
 
 import android.content.Context
 import android.media.MediaPlayer
+import android.net.Uri
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -9,6 +10,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class InstructionPlayer(private val context: Context) {
+    private val attributionContext: Context = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        context.createAttributionContext("meditation_player")
+    } else {
+        context
+    }
+
     private var mediaPlayer: MediaPlayer? = null
     private val scope = CoroutineScope(Dispatchers.Main)
 
@@ -24,16 +31,11 @@ class InstructionPlayer(private val context: Context) {
                 var success = false
                 withContext(Dispatchers.IO) {
                     try {
-                        context.resources.openRawResourceFd(resourceId).use { afd ->
-                            if (afd != null) {
-                                player.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                                success = true
-                            } else {
-                                Log.e("InstructionPlayer", "Failed to open raw resource fd for $resourceId")
-                            }
-                        }
+                        val uri = Uri.parse("android.resource://${attributionContext.packageName}/${resourceId}")
+                        player.setDataSource(attributionContext, uri)
+                        success = true
                     } catch (e: Exception) {
-                        Log.e("InstructionPlayer", "Error loading file descriptor: ${e.message}")
+                        Log.e("InstructionPlayer", "Error setting data source with context and uri: ${e.message}")
                     }
                 }
 
