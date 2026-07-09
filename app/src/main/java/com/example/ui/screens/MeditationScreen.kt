@@ -916,23 +916,15 @@ fun ActiveMeditationScreen(
         label = "pulse_scale"
     )
 
-    // Calculate breathing prompt based on a 16-second box cycle (In 4s, Hold 4s, Out 4s, Hold 4s)
-    val cycleTime = elapsedSeconds % 16
-    val breathInstruction = when {
-        !isGuided -> "Observe the natural rhythm of your breath"
-        cycleTime < 4 -> "Inhale gently... expand your lungs"
-        cycleTime < 8 -> "Hold in quiet still presence..."
-        cycleTime < 12 -> "Exhale slowly... release all tension"
-        else -> "Rest in the gentle empty space..."
+    // Cycle every 15 seconds (5 seconds per phase)
+    val phaseIndex = (elapsedSeconds / 5) % 3
+    val breathInstruction = when (phaseIndex) {
+        0 -> "Be Blessed"
+        1 -> "Be Happy"
+        else -> "Be Liberated"
     }
 
-    val breathSubtext = when {
-        !isGuided -> "Let thoughts float away like clouds"
-        cycleTime < 4 -> "Inhale calm"
-        cycleTime < 8 -> "Cultivate still awareness"
-        cycleTime < 12 -> "Exhale stress"
-        else -> "Be perfectly still"
-    }
+    val breathSubtext = "Be Perfectly Still"
 
     Column(
         modifier = Modifier
