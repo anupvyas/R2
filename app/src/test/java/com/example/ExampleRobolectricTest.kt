@@ -2,6 +2,7 @@ package com.example
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -97,5 +98,62 @@ class ExampleRobolectricTest {
     for (i in expectedGaps.indices) {
         assertEquals("Gap after track O${i+1} mismatch", expectedGaps[i], actualGaps[i])
     }
+  }
+
+  @Test
+  fun testDailyStreakCalculation() {
+    val application = ApplicationProvider.getApplicationContext<android.app.Application>()
+    val viewModel = com.example.ui.viewmodel.MeditationViewModel(application)
+
+    val now = System.currentTimeMillis()
+    val oneDayMs = 24 * 60 * 60 * 1000L
+
+    // Case 1: Empty sessions -> streak should be 0
+    assertEquals(0, viewModel.calculateStreak(emptyList()))
+
+    // Case 2: One session today -> streak should be 1
+    val sessionToday = com.example.data.database.MeditationSession(
+        dateMillis = now,
+        durationMinutes = 10,
+        points = 10,
+        isGuided = true
+    )
+    assertEquals(1, viewModel.calculateStreak(listOf(sessionToday)))
+
+    // Case 3: One session yesterday -> streak should be 1
+    val sessionYesterday = com.example.data.database.MeditationSession(
+        dateMillis = now - oneDayMs,
+        durationMinutes = 10,
+        points = 10,
+        isGuided = true
+    )
+    assertEquals(1, viewModel.calculateStreak(listOf(sessionYesterday)))
+
+    // Case 4: Sessions on consecutive days: today and yesterday -> streak should be 2
+    assertEquals(2, viewModel.calculateStreak(listOf(sessionToday, sessionYesterday)))
+
+    // Case 5: Sessions on consecutive days: today, yesterday, and 2 days ago -> streak should be 3
+    val session2DaysAgo = com.example.data.database.MeditationSession(
+        dateMillis = now - 2 * oneDayMs,
+        durationMinutes = 10,
+        points = 10,
+        isGuided = true
+    )
+    assertEquals(3, viewModel.calculateStreak(listOf(sessionToday, sessionYesterday, session2DaysAgo)))
+
+    // Case 6: Session today and 2 days ago (gap yesterday) -> streak should be 1
+    assertEquals(1, viewModel.calculateStreak(listOf(sessionToday, session2DaysAgo)))
+
+    // Case 7: Session yesterday and 2 days ago (gap today) -> streak should be 2
+    assertEquals(2, viewModel.calculateStreak(listOf(sessionYesterday, session2DaysAgo)))
+
+    // Case 8: Session 2 days ago and 3 days ago (gap today and yesterday) -> streak should be 0
+    val session3DaysAgo = com.example.data.database.MeditationSession(
+        dateMillis = now - 3 * oneDayMs,
+        durationMinutes = 10,
+        points = 10,
+        isGuided = true
+    )
+    assertEquals(0, viewModel.calculateStreak(listOf(session2DaysAgo, session3DaysAgo)))
   }
 }

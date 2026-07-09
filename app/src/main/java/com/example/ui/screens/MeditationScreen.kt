@@ -46,6 +46,7 @@ import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.ui.draw.alpha
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -104,7 +105,7 @@ fun MeditationScreen(
     val remainingSeconds by viewModel.remainingSeconds.collectAsStateWithLifecycle()
 
     val todayScore by viewModel.todayScore.collectAsStateWithLifecycle()
-    val yesterdayScore by viewModel.yesterdayScore.collectAsStateWithLifecycle()
+    val streakCount by viewModel.streakCount.collectAsStateWithLifecycle()
     val lifetimeScore by viewModel.lifetimeScore.collectAsStateWithLifecycle()
     val allSessions by viewModel.allSessions.collectAsStateWithLifecycle()
 
@@ -126,7 +127,7 @@ fun MeditationScreen(
                     customSliderMinutes = customSliderMinutes,
                     isGuided = isGuided,
                     todayScore = todayScore,
-                    yesterdayScore = yesterdayScore,
+                    streakCount = streakCount,
                     lifetimeScore = lifetimeScore,
                     allSessions = allSessions,
                     onOpenManualLog = { showManualLogDialog = true }
@@ -170,7 +171,7 @@ fun IdleDashboard(
     customSliderMinutes: Int,
     isGuided: Boolean,
     todayScore: Int,
-    yesterdayScore: Int,
+    streakCount: Int,
     lifetimeScore: Int,
     allSessions: List<MeditationSession>,
     onOpenManualLog: () -> Unit
@@ -249,10 +250,12 @@ fun IdleDashboard(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         ScoreBadge(
-                            title = "Yesterday",
-                            score = yesterdayScore,
+                            title = "Streak",
+                            score = streakCount,
                             badgeColor = Color(0xFFE5C384),
-                            modifier = Modifier.weight(1f).testTag("yesterday_score")
+                            icon = Icons.Default.Whatshot,
+                            unit = if (streakCount == 1) "day" else "days",
+                            modifier = Modifier.weight(1f).testTag("streak_count")
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         ScoreBadge(
@@ -720,7 +723,9 @@ fun ScoreBadge(
     title: String,
     score: Int,
     badgeColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    unit: String = "points",
+    icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Default.Star
 ) {
     Column(
         modifier = modifier
@@ -743,8 +748,8 @@ fun ScoreBadge(
             horizontalArrangement = Arrangement.Center
         ) {
             Icon(
-                imageVector = Icons.Default.Star,
-                contentDescription = "Star",
+                imageVector = icon,
+                contentDescription = title,
                 tint = EditorialPrimarySage,
                 modifier = Modifier.size(14.dp)
             )
@@ -759,7 +764,7 @@ fun ScoreBadge(
         }
         Spacer(modifier = Modifier.height(2.dp))
         Text(
-            text = "points",
+            text = unit,
             fontSize = 10.sp,
             color = EditorialPrimarySage.copy(alpha = 0.8f),
             fontFamily = FontFamily.SansSerif

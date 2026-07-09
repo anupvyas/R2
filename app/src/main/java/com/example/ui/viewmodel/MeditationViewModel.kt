@@ -105,6 +105,10 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
         sessions.filter { isYesterday(it.dateMillis) }.sumOf { it.points }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    val streakCount: StateFlow<Int> = allSessions.map { sessions ->
+        calculateStreak(sessions)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
     val lifetimeScore: StateFlow<Int> = allSessions.map { sessions ->
         sessions.sumOf { it.points }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -414,5 +418,73 @@ class MeditationViewModel(application: Application) : AndroidViewModel(applicati
         val yesterdayCal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
         return sessionCal.get(Calendar.YEAR) == yesterdayCal.get(Calendar.YEAR) &&
                 sessionCal.get(Calendar.DAY_OF_YEAR) == yesterdayCal.get(Calendar.DAY_OF_YEAR)
+    }
+
+    internal fun calculateStreak(sessions: List<MeditationSession>): Int {
+        if (sessions.isEmpty()) return 0
+
+        val sortedDates = sessions
+            .filter { it.points > 0 }
+            .map { session ->
+                val cal = Calendar.getInstance().apply { timeInMillis = session.dateMillis }
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                cal.timeInMillis
+            }
+            .distinct()
+            .sortedDescending()
+
+        if (sortedDates.isEmpty()) return 0
+
+        val todayCal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val todayStart = todayCal.timeInMillis
+
+        val yesterdayCal = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val yesterdayStart = yesterdayCal.timeInMillis
+
+        val latestMeditatedDay = sortedDates[0]
+
+        if (latestMeditatedDay != todayStart && latestMeditatedDay != yesterdayStart) {
+            return 0
+        }
+
+        var streak = 1
+        var expectedDay = Calendar.getInstance().apply { timeInMillis = latestMeditatedDay }
+
+        for (i in 1 until sortedDates.size) {
+            expectedDay.add(Calendar.DAY_OF_YEAR, -1)
+            val expectedDayStart = expectedDay.apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+
+            val actualDayStart = sortedDates[i]
+
+            val actualCal = Calendar.getInstance().apply { timeInMillis = actualDayStart }
+            val expectedCal = Calendar.getInstance().apply { timeInMillis = expectedDayStart }
+
+            if (actualCal.get(Calendar.YEAR) == expectedCal.get(Calendar.YEAR) &&
+                actualCal.get(Calendar.DAY_OF_YEAR) == expectedCal.get(Calendar.DAY_OF_YEAR)) {
+                streak++
+            } else {
+                break
+            }
+        }
+        return streak
     }
 }
